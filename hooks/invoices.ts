@@ -1,69 +1,144 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 
-// إضافة activeTab كبارامتر للـ Hook لتعيين نوع الفاتورة تلقائياً
-export const useInvoiceManager = (onSuccess: (invoice: any) => void, activeTab: string) => {
-  const [client, setClient] = useState("");
-  const [status, setStatus] = useState("مدفوعة");
-  const [items, setItems] = useState([{ productId: "", name: "", quantity: 1, price: 0, discount: 0, note: "", total: 0 }]);
-  const [overallDiscount, setOverallDiscount] = useState(0);
-  const [searchQueries, setSearchQueries] = useState<{ [key: number]: string }>({});
-  const [showDropdown, setShowDropdown] = useState<{ [key: number]: boolean }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+// --- الأنواع الأساسية ---
+export type InvoiceType = 'all' | 'revenue' | 'expense';
 
-  const updateItem = (index: number, field: string, value: any, products: any[]) => {
-    const newItems = [...items];
-    if (field === "productId") {
-      const product = products.find(p => p.id.toString() === value);
-      if (product) {
-        newItems[index] = { ...newItems[index], productId: value, name: product.name, price: product.price };
-        setSearchQueries({ ...searchQueries, [index]: product.name });
-        setShowDropdown({ ...showDropdown, [index]: false });
-      }
-    } else {
-      newItems[index] = { ...newItems[index], [field]: value };
+export interface InvoiceItem {
+    name: string;
+    quantity: number;
+    price: number;
+    note: string;
+}
+
+export interface Invoice {
+    invoice_number: string;
+    customer: string;
+    total: number;
+    subtotal: number;
+    discount: number;
+    date: string;
+    type: 'revenue' | 'expense';
+    status: 'paid' | 'pending' | 'overdue' | string;
+    items: InvoiceItem[];
+}
+
+const MOCK_INVOICES: Invoice[] = [
+    { 
+        invoice_number: "INV-001", customer: "شركة التقنية العربية", subtotal: 1500, discount: 0, total: 1500, 
+        date: "2024-01-10", type: "revenue", status: "paid", items: [] 
+    },
+    { 
+        invoice_number: "INV-002", customer: "مورد قطع الغيار", subtotal: 800, discount: 0, total: 800, 
+        date: "2024-01-12", type: "expense", status: "pending", items: [] 
     }
+];
 
-    const itemTotal = (newItems[index].price * newItems[index].quantity) - (Number(newItems[index].discount) || 0);
-    newItems[index].total = itemTotal > 0 ? itemTotal : 0;
-    setItems(newItems);
-  };
+export function useInvoices() {
+    // --- حالات التحكم في القائمة والترقيم ---
+    const [activeTab, setActiveTab] = useState<InvoiceType>('all');
+    const [invoices, setInvoices] = useState<Invoice[]>(MOCK_INVOICES);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [toastType, setToastType] = useState<"add" | "delete" | "edit" | null>(null);
+    const itemsPerPage = 3;
 
-  const addNewItem = () => setItems([...items, { productId: "", name: "", quantity: 1, price: 0, discount: 0, note: "", total: 0 }]);
+    // --- حالات المودال والنموذج (Form States) ---
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+    const [customer, setCustomer] = useState("");
+    const [status, setStatus] = useState("paid");
+    const [discount, setDiscount] = useState(0);
+    const [items, setItems] = useState([{ name: "", quantity: 1, price: 0, note: "", search: "" }]);
+    const [showProductList, setShowProductList] = useState<number | null>(null);
 
-  const subTotal = items.reduce((acc, item) => acc + item.total, 0);
-  const grandTotal = subTotal - overallDiscount;
+    // --- حسابات تلقائية للنموذج ---
+    const subtotal = useMemo(() => items.reduce((s, i) => s + (i.quantity * i.price), 0), [items]);
+    const total = useMemo(() => subtotal - discount, [subtotal, discount]);
 
-  const handleSubmit = async () => {
-    if (!client) return alert("يرجى اختيار العميل أو المورد");
-    setIsSubmitting(true);
-    
-    // تحديد النوع بناءً على التبويب: إذا كان 'all' نجعلها revenue كافتراضي
-    const finalType = activeTab === 'expense' ? 'expense' : 'revenue';
+    // --- التصفية والترقيم ---
+    const filteredInvoices = useMemo(() => {
+        if (activeTab === 'all') return invoices;
+        return invoices.filter(inv => inv.type === activeTab);
+    }, [activeTab, invoices]);
 
-    const finalInvoice = {
-      invoice_number: `${finalType === 'revenue' ? 'INV' : 'EXP'}-${Date.now().toString().slice(-4)}`,
-      customer: { name: client, email: "client@example.com", address: "Local Market" },
-      status: status === "مدفوعة" ? "Paid" : "Pending",
-      total: grandTotal,
-      issue_date: new Date().toISOString().split('T')[0],
-      line_items: items.map(i => ({ desc: i.name, qty: i.quantity, price: i.price })),
-      type: finalType 
+    const { displayInvoices, totalPages } = useMemo(() => {
+        const pages = Math.ceil(filteredInvoices.length / itemsPerPage);
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return { displayInvoices: filteredInvoices.slice(startIndex, startIndex + itemsPerPage), totalPages: pages };
+    }, [filteredInvoices, currentPage]);
+
+    useEffect(() => { setCurrentPage(1); }, [activeTab]);
+
+    // --- الوظائف (Actions) ---
+    const showToast = (type: "add" | "delete" | "edit") => {
+        setToastType(type);
+        setTimeout(() => setToastType(null), 3000);
     };
 
-    setTimeout(() => {
-      onSuccess(finalInvoice);
-      setIsSubmitting(false);
-      // Reset Hook
-      setClient(""); 
-      setItems([{ productId: "", name: "", quantity: 1, price: 0, discount: 0, note: "", total: 0 }]);
-      setOverallDiscount(0);
-      setSearchQueries({});
-    }, 1000);
-  };
+    const resetForm = () => {
+        setCustomer("");
+        setStatus("paid");
+        setDiscount(0);
+        setItems([{ name: "", quantity: 1, price: 0, note: "", search: "" }]);
+        setSelectedInvoice(null);
+    };
 
-  return {
-    client, setClient, status, setStatus, items, setItems, addNewItem, updateItem,
-    overallDiscount, setOverallDiscount, grandTotal, handleSubmit, isSubmitting,
-    searchQueries, setSearchQueries, showDropdown, setShowDropdown
-  };
-};
+    const handleSave = (type: 'revenue' | 'expense') => {
+        if (!customer || items.some(item => !item.name)) {
+            alert("يرجى إكمال بيانات العميل وإضافة صنف واحد على الأقل");
+            return;
+        }
+
+        const newInvoice: Invoice = {
+            invoice_number: `INV-${Math.floor(1000 + Math.random() * 9000)}`,
+            customer,
+            status,
+            items: items.map(({ search, ...rest }) => rest), // تنظيف البيانات من حقل البحث
+            subtotal,
+            discount,
+            total,
+            type,
+            date: new Date().toLocaleDateString('ar-SY')
+        };
+
+        setInvoices(prev => [newInvoice, ...prev]);
+        showToast("add");
+        setIsAddModalOpen(false);
+        resetForm();
+    };
+
+    const deleteInvoice = (e: React.MouseEvent, id: string) => {
+        e.stopPropagation();
+        if (confirm("هل أنت متأكد من حذف هذه الفاتورة؟")) {
+            setInvoices(prev => prev.filter(inv => inv.invoice_number !== id));
+            showToast("delete");
+        }
+    };
+
+    const totalAmount = useMemo(() => filteredInvoices.reduce((sum, inv) => sum + inv.total, 0), [filteredInvoices]);
+
+    return {
+        // البيانات والحالات
+        activeTab, setActiveTab,
+        invoices, setInvoices,
+        displayInvoices, totalPages,
+        currentPage, setCurrentPage,
+        toastType, totalAmount,
+        filteredInvoices,
+        
+        // حالات النموذج (لربطها بمدخلات الـ Modal)
+        isAddModalOpen, setIsAddModalOpen,
+        customer, setCustomer,
+        status, setStatus,
+        items, setItems,
+        discount, setDiscount,
+        subtotal, total,
+        showProductList, setShowProductList,
+        selectedInvoice, setSelectedInvoice,
+
+        // الوظائف
+        handleSave,
+        deleteInvoice,
+        resetForm,
+        handleViewInvoice: (inv: Invoice) => setSelectedInvoice(inv)
+    };
+}

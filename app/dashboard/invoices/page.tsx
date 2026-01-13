@@ -8,6 +8,7 @@ import {
     ChevronLeft,
     ChevronRight
 } from "lucide-react";
+import { useInvoices } from '@/hooks/invoices';
 
 // --- بيانات النظام ---
 const mockCustomers = ["شركة النور", "مؤسسة الأمل", "محلات العلي", "تكنو ستور"];
@@ -19,47 +20,32 @@ const mockProducts = [
 ];
 
 export default function InvoiceSystem() {
-    const [darkMode, setDarkMode] = useState(false);
-    const [activeTab, setActiveTab] = useState<'all' | 'revenue' | 'expense'>('all');
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-    const [invoices, setInvoices] = useState<any[]>([]);
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 3; // عدد الفواتير في كل صفحة
-    const { displayInvoices, totalPages } = useMemo(() => {
-        // أولاً: نفلتر حسب النوع (الكل، مقبوضات، مدفوعات)
-        const filtered = activeTab === 'all'
-            ? invoices
-            : invoices.filter(inv => inv.type === activeTab);
+    const useinvoice = useInvoices()
+    const {
+        activeTab,
+        setActiveTab,
+        isAddModalOpen,
+        setIsAddModalOpen,
+        selectedInvoice,
+        setSelectedInvoice,
+        invoices,
+        setInvoices,
+        currentPage,
+        setCurrentPage,
+        
+        // البيانات المعالجة
+        displayInvoices,
+        totalPages,
+        filteredInvoices,
+        totalAmount,
 
-        // ثانياً: نحسب إجمالي الصفحات
-        const pages = Math.ceil(filtered.length / itemsPerPage);
-
-        // ثالثاً: نقتطع البيانات للصفحة الحالية فقط
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        const sliced = filtered.slice(startIndex, startIndex + itemsPerPage);
-
-        return { displayInvoices: sliced, totalPages: pages };
-    }, [activeTab, invoices, currentPage]);
-
-    // إعادة تعيين الصفحة إلى 1 عند تغيير التبويب
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [activeTab]);
-    const deleteInvoice = (e: React.MouseEvent, id: string) => {
-        e.stopPropagation();
-        if (confirm("هل أنت متأكد من حذف هذه الفاتورة؟")) {
-            setInvoices(invoices.filter(inv => inv.invoice_number !== id));
-        }
-    };
-
-    const filteredInvoices = useMemo(() => {
-        if (activeTab === 'all') return invoices;
-        return invoices.filter(inv => inv.type === activeTab);
-    }, [activeTab, invoices]);
+        // الوظائف
+        deleteInvoice,
+        handleViewInvoice
+    } = useinvoice
 
     return (
-        <div className={`${darkMode ? 'dark' : ''} transition-colors duration-500`} dir="rtl">
+        <div className={`transition-colors duration-500`} dir="rtl">
             <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-12 font-sans text-slate-900 dark:text-slate-100">
 
                 {/* Header */}
@@ -69,9 +55,7 @@ export default function InvoiceSystem() {
                         <p className="text-slate-500 text-sm mt-1">البحث، الحالات، الخصومات والملاحظات</p>
                     </div>
                     <div className="flex gap-3">
-                        <button onClick={() => setDarkMode(!darkMode)} className="p-3 bg-white dark:bg-slate-900 rounded-2xl border dark:border-slate-800">
-                            {darkMode ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-slate-600" />}
-                        </button>
+                        
                         <button onClick={() => setIsAddModalOpen(true)} className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 shadow-lg">
                             <Plus size={20} /> فاتورة جديدة
                         </button>
@@ -150,7 +134,7 @@ export default function InvoiceSystem() {
                 {/* Modals */}
                 <AnimatePresence>
                     {selectedInvoice && <InvoiceDetailsModal invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} />}
-                    {isAddModalOpen && <AddInvoiceModal onClose={() => setIsAddModalOpen(false)} onSave={(n: any) => setInvoices([n, ...invoices])} type={activeTab === 'expense' ? 'expense' : 'revenue'} />}
+                    {isAddModalOpen && <AddInvoiceModal invoicesadd ={useinvoice} type={activeTab === 'expense' ? 'expense' : 'revenue'} />}
                 </AnimatePresence>
             </div>
         </div>
@@ -158,32 +142,15 @@ export default function InvoiceSystem() {
 }
 
 // --- مكون إضافة فاتورة (مع البحث والاختيار والحالة) ---
-function AddInvoiceModal({ onClose, onSave, type }: any) {
-    const [customer, setCustomer] = useState("");
-    const [status, setStatus] = useState("Paid");
-    const [discount, setDiscount] = useState(0);
-    const [items, setItems] = useState([{ name: "", quantity: 1, price: 0, note: "", search: "" }]);
-    const [showProductList, setShowProductList] = useState<number | null>(null);
-
-    const subtotal = items.reduce((s, i) => s + (i.quantity * i.price), 0);
-    const total = subtotal - discount;
-
-    const handleSave = () => {
-        if (!customer || items[0].name === "") return alert("يرجى إكمال البيانات");
-        onSave({
-            invoice_number: Math.floor(1000 + Math.random() * 9000),
-            type, customer, status, items, subtotal, discount, total,
-            date: new Date().toLocaleDateString('ar-SY')
-        });
-        onClose();
-    };
+function AddInvoiceModal({ invoicesadd, type }: any) {
+    const { handleSave, total , setIsAddModalOpen , customer , setCustomer , status , setStatus , discount , setDiscount , items , setItems , setShowProductList , showProductList} = invoicesadd
 
     return (
         <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
             <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-[3rem] p-8 shadow-2xl overflow-visible">
                 <div className="flex justify-between items-center mb-8 border-b dark:border-slate-800 pb-4">
                     <h2 className="text-2xl font-black">إصدار فاتورة {type === 'revenue' ? 'مقبوضات' : 'مدفوعات'}</h2>
-                    <button onClick={onClose} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><X /></button>
+                    <button onClick={() => setIsAddModalOpen(false)} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-full"><X /></button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -221,7 +188,7 @@ function AddInvoiceModal({ onClose, onSave, type }: any) {
                         <div className="col-span-1"></div>
                     </div>
 
-                    {items.map((item, idx) => (
+                    {items.map((item:any, idx:number) => (
                         <div key={idx} className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border dark:border-slate-800 space-y-3">
                             <div className="grid grid-cols-12 gap-4 items-center relative">
                                 {/* البحث عن منتج */}
@@ -265,7 +232,7 @@ function AddInvoiceModal({ onClose, onSave, type }: any) {
                                     <input type="number" value={item.price} onChange={(e) => { const n = [...items]; n[idx].price = Number(e.target.value); setItems(n); }} className="w-full p-3 rounded-xl dark:bg-slate-900 text-center" />
                                 </div>
                                 <div className="col-span-2 text-center font-black text-blue-600">{(item.quantity * item.price).toLocaleString()}</div>
-                                <button onClick={() => setItems(items.filter((_, i) => i !== idx))} className="col-span-1 text-red-400"><Trash2 size={18} /></button>
+                                <button onClick={() => setItems(items.filter((_:any, i:number) => i !== idx))} className="col-span-1 text-red-400"><Trash2 size={18} /></button>
                             </div>
                             <input placeholder="أضف ملاحظة لهذا الصنف..." value={item.note} onChange={(e) => { const n = [...items]; n[idx].note = e.target.value; setItems(n); }} className="w-full p-2 bg-white dark:bg-slate-900 rounded-lg text-xs outline-none border dark:border-slate-800" />
                         </div>
@@ -280,8 +247,8 @@ function AddInvoiceModal({ onClose, onSave, type }: any) {
                         <h3 className="text-3xl font-black text-emerald-400">{total.toLocaleString()} ل.س</h3>
                     </div>
                     <div className="flex gap-3">
-                        <button onClick={handleSave} className="bg-blue-600 text-white px-12 py-4 rounded-2xl font-black shadow-lg">حفظ الفاتورة</button>
-                        <button onClick={onClose} className="px-8 py-4 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold">إلغاء</button>
+                        <button onClick={() => handleSave(type)} className="bg-blue-600 text-white px-12 py-4 rounded-2xl font-black shadow-lg">حفظ الفاتورة</button>
+                        <button onClick={() => setIsAddModalOpen(false)} className="px-8 py-4 bg-slate-100 dark:bg-slate-800 rounded-2xl font-bold">إلغاء</button>
                     </div>
                 </div>
             </motion.div>

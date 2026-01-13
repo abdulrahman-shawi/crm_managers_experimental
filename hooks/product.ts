@@ -211,7 +211,7 @@ export function useProductForm(onSuccess: () => void) {
         // البحث والترقيم
         searchTerm, setSearchTerm, currentPage, setCurrentPage, totalPages,
         // الوظائف
-        handleFileChange, handleSubmit, resetForm, isEditing, clickEdit,
+        handleFileChange, handleSubmit, resetForm, isEditing, clickEdit, filteredProducts,
         handleDeleteProduct, 
         handleViewProduct: (product: Product) => alert(`التفاصيل: ${product.name} - القسم: ${product.category?.name}`)
     };

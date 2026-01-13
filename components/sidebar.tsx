@@ -31,7 +31,7 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }: { isCollapsed: boolean;
         { icon: Box, label: "المخزن والمنتجات", href: "/dashboard/products" },
         { icon: Users, label: "العملاء", href: "/dashboard/customers" },
         { icon: FileText, label: "المصاريف الثابتة", href: "/dashboard/fixed-expenses" },
-        { icon: Users2, label: "توصيات العملاء", href: "/dashboard/customer-recommendations" },
+        { icon: Users2, label: "تواصل العملاء", href: "/dashboard/contact-customer" },
       ]
     },
     {
