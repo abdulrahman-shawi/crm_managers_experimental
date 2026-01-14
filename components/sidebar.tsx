@@ -3,6 +3,7 @@ import {
   Home, BarChart2, Users, Settings, ChevronRight, ChevronLeft, 
   Receipt, Box, FileText, PieChart, ShieldCheck, HelpCircle, LogOut, 
   Users2,
+  RollerCoasterIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -32,13 +33,14 @@ export const Sidebar = ({ isCollapsed, setIsCollapsed }: { isCollapsed: boolean;
         { icon: Users, label: "العملاء", href: "/dashboard/customers" },
         { icon: FileText, label: "المصاريف الثابتة", href: "/dashboard/fixed-expenses" },
         { icon: Users2, label: "تواصل العملاء", href: "/dashboard/contact-customer" },
+        { icon: FileText, label: "الفواتير", href: "/dashboard/invoices" },
       ]
     },
     {
       group: "الموارد",
       items: [
        { icon: Users, label: "المستخدمين", href: "/dashboard/users" },
-        { icon: FileText, label: "الفواتير", href: "/dashboard/invoices" },
+       { icon: RollerCoasterIcon, label: "الأدوار", href: "/dashboard/permissions" },
       ].filter(Boolean) as MenuItem[],
     },
     {
