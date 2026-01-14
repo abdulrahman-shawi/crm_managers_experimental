@@ -21,7 +21,7 @@ interface CategoryData {
 export function useCategories() {
 
     const [categories, setCategories] = useState<CategoryData[]>([]);
-    const [isLoading, setIsLoading] = useState(true); // حالة التحميل
+    const [isLoading, setIsLoading] = useState(false); // حالة التحميل
     const [isOpen, setIsOpen] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [toastType, setToastType] = useState<"add" | "delete" | "edit" | null>(null);
@@ -32,24 +32,10 @@ export function useCategories() {
         products: [],
     });
 
-    const fetchCategories = async () => {
-        try {
-            setIsLoading(true);
-            const res = await axios.get("/api/dashboard/categories");
-            setCategories(Array.isArray(res.data) ? res.data : []);
-        } catch (err) {
-            console.error("فشل جلب الأقسام", err);
-        } finally {
-            setIsLoading(false); // إيقاف التحميل سواء نجح أو فشل
-        }
-    };
 
-    useEffect(() => {
-        fetchCategories();
-    }, []);
 
     const openAddModal = () => {
-        setCurrentCat({ id: 0, name: "", description: "", products: []});
+        setCurrentCat({ id: 0, name: "", description: "", products: [] });
         setIsEditing(false);
         setIsOpen(true);
     };
@@ -66,20 +52,20 @@ export function useCategories() {
                 setCategories(categories.map(c =>
                     c.id === currentCat.id ? { ...c, name: currentCat.name, description: currentCat.description } : c
                 ));
-                
-                    setCategories(categories.map(c =>
-                        c.id === currentCat.id ? { ...c, name: currentCat.name, description: currentCat.description } : c
-                    ));
-                    showToast("edit");
+
+                setCategories(categories.map(c =>
+                    c.id === currentCat.id ? { ...c, name: currentCat.name, description: currentCat.description } : c
+                ));
+                showToast("edit");
             } else {
-                    const newCat: CategoryData = {
-                        id:Date.now(),
-                        name: currentCat.name,
-                        description: currentCat.description,
-                        products: []
-                    };
-                    setCategories([...categories, newCat]);
-                    showToast("add");
+                const newCat: CategoryData = {
+                    id: Date.now(),
+                    name: currentCat.name,
+                    description: currentCat.description,
+                    products: []
+                };
+                setCategories([...categories, newCat]);
+                showToast("add");
             }
             setIsOpen(false);
         } catch (error) {
@@ -89,11 +75,9 @@ export function useCategories() {
 
     const handleDelete = async (id: number) => {
         if (confirm("هل أنت متأكد من حذف هذا القسم؟")) {
-            const res = await axios.delete(`/api/dashboard/categories/${id}`);
-            if (res.status === 204) {
-                setCategories(categories.filter(c => c.id !== id));
-                showToast("delete");
-            }
+            setCategories(categories.filter(c => c.id !== id));
+            showToast("delete");
+
         }
     };
 
